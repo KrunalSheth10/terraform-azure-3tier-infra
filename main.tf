@@ -157,6 +157,7 @@ resource "azurerm_network_security_group" "app_nsg"{
 # Allow traffic only from Web Subnet
 
 resource "azurerm_network_security_rule" "app_from_web"{
+<<<<<<< HEAD
   name                          = "Allow-Web-To-App"
   priority                      = 100
   direction                     ="Inbound"
@@ -168,10 +169,25 @@ resource "azurerm_network_security_rule" "app_from_web"{
   destination_address_prefix    = "*"
   resource_group_name           =azurerm_resource_group.rg.name
   network_security_group_name   = azurerm_network_security_group.app_nsg.name
+=======
+
+name                          = "Allow-Web-To-App"
+priority                      = 100
+direction                     ="Inbound"
+access                        = "Allow"
+protocol                      = "*"
+source_port_range             = "*"
+destination_port_range        = "*"
+source_address_prefix         = azurerm_subnet.web.address_prefixes[0]
+destination_address_prefix    = "*"
+resource_group_name           =azurerm_resource_group.rg.name
+network_security_group_name   = azurerm_network_security_group.app_nsg.name
+>>>>>>> origin/main
 }
 
 # Associate NSG with App Subnet
 resource "azurerm_subnet_network_security_group_association" "app_assoc" {
+<<<<<<< HEAD
   subnet_id                     = azurerm_subnet.app.id
   network_security_group_id     = azurerm_network_security_group.app_nsg.id
 }
@@ -190,6 +206,10 @@ resource "azurerm_network_interface" "app-nic" {
     subnet_id                   = azurerm_subnet.app.id
     private_ip_address_allocation = "Dynamic"
   }
+=======
+  subnet_id                   = azurerm_subnet.app.id
+  network_security_group_id   = azurerm_network_security_group.app_nsg.id
+>>>>>>> origin/main
 }
 
 # ========================================================
@@ -235,7 +255,11 @@ resource "azurerm_subnet_network_security_group_association" "db_assoc" {
 }
 
 # ========================================================
+<<<<<<< HEAD
 # Public IP for Web Virtual Machine (VM) 
+=======
+# Public IP for Web Virtual Machine (VM)
+>>>>>>> origin/main
 # ========================================================
 
 resource "azurerm_public_ip" "web_ip" {
@@ -264,6 +288,7 @@ resource "azurerm_network_interface" "web_nic" {
 }
 
 # ========================================================
+<<<<<<< HEAD
 # Linux Virtual Machine For Web
 # ========================================================
 
@@ -291,6 +316,35 @@ resource "azurerm_linux_virtual_machine" "web_vm" {
     offer                     = "0001-com-ubuntu-server-jammy"
     sku                       = "22_04-lts"
     version                   = "latest"
+=======
+# Linux Virtual Machine
+# ========================================================
+
+resource "azurerm_linux_virtual_machine" "web_vm" {
+  name                = "web-vm"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  network_interface_ids = [azurerm_network_interface.web_nic.id]
+  size                = "Standard_B1s"
+
+  admin_username      = "azureuser"
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file("C:/Users/DELL/.ssh/id_rsa.pub")
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts"
+    version   = "latest"
+>>>>>>> origin/main
   }
 }
 
