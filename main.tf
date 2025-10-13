@@ -134,6 +134,67 @@ resource"azurerm_subnet_network_security_group_association" "web_assoc"{
 }
 
 # ========================================================
+# Public IP for Web Virtual Machine (VM) 
+# ========================================================
+
+resource "azurerm_public_ip" "web_ip" {
+  name                        = "web-vm-ip"
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+  allocation_method           = "Static"
+  sku                         = "Standard"
+}
+  
+# ========================================================
+# Network Interface (NIC) for Web VM
+# ========================================================
+
+resource "azurerm_network_interface" "web_nic" {
+  name                        = "web-nic"
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                      = "web-ip-config"
+    subnet_id                 = azurerm_subnet.web.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id      = azurerm_public_ip.web_ip.id 
+  }
+}
+
+# ========================================================
+# Linux Virtual Machine For Web
+# ========================================================
+
+resource "azurerm_linux_virtual_machine" "web_vm" {
+  name                        = "web-vm"
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+  network_interface_ids       = [azurerm_network_interface.web_nic.id]
+  size                        = "Standard_B1s"
+  admin_username              = "azureuser"
+
+  admin_ssh_key {
+    username                  = "azureuser"
+    public_key                = file("C:/Users/DELL/.ssh/id_rsa.pub")
+  }
+
+  os_disk {
+    name                      = "web-os-disk"
+    caching                   = "ReadWrite"
+    storage_account_type      = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher                 = "Canonical"
+    offer                     = "0001-com-ubuntu-server-jammy"
+    sku                       = "22_04-lts"
+    version                   = "latest"
+  }
+}
+
+
+# ========================================================
 # App Subnet 
 # ========================================================
 
@@ -157,7 +218,6 @@ resource "azurerm_network_security_group" "app_nsg"{
 # Allow traffic only from Web Subnet
 
 resource "azurerm_network_security_rule" "app_from_web"{
-<<<<<<< HEAD
   name                          = "Allow-Web-To-App"
   priority                      = 100
   direction                     ="Inbound"
@@ -169,25 +229,10 @@ resource "azurerm_network_security_rule" "app_from_web"{
   destination_address_prefix    = "*"
   resource_group_name           =azurerm_resource_group.rg.name
   network_security_group_name   = azurerm_network_security_group.app_nsg.name
-=======
-
-name                          = "Allow-Web-To-App"
-priority                      = 100
-direction                     ="Inbound"
-access                        = "Allow"
-protocol                      = "*"
-source_port_range             = "*"
-destination_port_range        = "*"
-source_address_prefix         = azurerm_subnet.web.address_prefixes[0]
-destination_address_prefix    = "*"
-resource_group_name           =azurerm_resource_group.rg.name
-network_security_group_name   = azurerm_network_security_group.app_nsg.name
->>>>>>> origin/main
 }
 
 # Associate NSG with App Subnet
 resource "azurerm_subnet_network_security_group_association" "app_assoc" {
-<<<<<<< HEAD
   subnet_id                     = azurerm_subnet.app.id
   network_security_group_id     = azurerm_network_security_group.app_nsg.id
 }
@@ -206,10 +251,38 @@ resource "azurerm_network_interface" "app-nic" {
     subnet_id                   = azurerm_subnet.app.id
     private_ip_address_allocation = "Dynamic"
   }
-=======
-  subnet_id                   = azurerm_subnet.app.id
-  network_security_group_id   = azurerm_network_security_group.app_nsg.id
->>>>>>> origin/main
+}
+
+# ========================================================
+# App Virtual Machine (VM)
+# ========================================================
+
+resource "azurerm_linux_virtual_machine" "app_vm" {
+  name                          = "app-vm"
+  resource_group_name           = azurerm_resource_group.rg.name
+  location                      = azurerm_resource_group.rg.location
+  size                          = "Standard_B1s"
+  admin_username                = "azureuser"
+  network_interface_ids         = [azurerm_network_interface.app-nic.id]
+  os_disk {
+    caching                     = "ReadWrite"
+    storage_account_type        = "Standard_LRS" 
+  }  
+
+  source_image_reference {
+    publisher                   = "Canonical"
+    offer                       = "0001-com-ubuntu-server-focal"
+    sku                         = "20_04-lts-gen2"
+    version                     = latest  
+  }
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file("C:\\Users\\DELL\\.ssh\\id_rsa.pub")
+  }
+
+  disable_password_authentication = true
+      
 }
 
 # ========================================================
@@ -253,98 +326,3 @@ resource "azurerm_subnet_network_security_group_association" "db_assoc" {
   subnet_id                   = azurerm_subnet.db.id
   network_security_group_id   = azurerm_network_security_group.db_nsg.id
 }
-
-# ========================================================
-<<<<<<< HEAD
-# Public IP for Web Virtual Machine (VM) 
-=======
-# Public IP for Web Virtual Machine (VM)
->>>>>>> origin/main
-# ========================================================
-
-resource "azurerm_public_ip" "web_ip" {
-  name                        = "web-vm-ip"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-  allocation_method           = "Static"
-  sku                         = "Standard"
-}
-  
-# ========================================================
-# Network Interface (NIC) for Web VM
-# ========================================================
-
-resource "azurerm_network_interface" "web_nic" {
-  name                        = "web-nic"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                      = "web-ip-config"
-    subnet_id                 = azurerm_subnet.web.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id      = azurerm_public_ip.web_ip.id 
-  }
-}
-
-# ========================================================
-<<<<<<< HEAD
-# Linux Virtual Machine For Web
-# ========================================================
-
-resource "azurerm_linux_virtual_machine" "web_vm" {
-  name                        = "web-vm"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-  network_interface_ids       = [azurerm_network_interface.web_nic.id]
-  size                        = "Standard_B1s"
-  admin_username              = "azureuser"
-
-  admin_ssh_key {
-    username                  = "azureuser"
-    public_key                = file("C:/Users/DELL/.ssh/id_rsa.pub")
-  }
-
-  os_disk {
-    name                      = "web-os-disk"
-    caching                   = "ReadWrite"
-    storage_account_type      = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher                 = "Canonical"
-    offer                     = "0001-com-ubuntu-server-jammy"
-    sku                       = "22_04-lts"
-    version                   = "latest"
-=======
-# Linux Virtual Machine
-# ========================================================
-
-resource "azurerm_linux_virtual_machine" "web_vm" {
-  name                = "web-vm"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  network_interface_ids = [azurerm_network_interface.web_nic.id]
-  size                = "Standard_B1s"
-
-  admin_username      = "azureuser"
-
-  admin_ssh_key {
-    username   = "azureuser"
-    public_key = file("C:/Users/DELL/.ssh/id_rsa.pub")
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
->>>>>>> origin/main
-  }
-}
-
