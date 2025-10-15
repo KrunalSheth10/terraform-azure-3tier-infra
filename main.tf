@@ -377,3 +377,7 @@ resource "azurerm_linux_virtual_machine" "db_vm" {
 
   disable_password_authentication = true 
 }
+
+# ========================================================
+# Load Balancer for Web Tier
+# ========================================================
