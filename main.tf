@@ -265,6 +265,7 @@ resource "azurerm_linux_virtual_machine" "app_vm" {
   admin_username                = "azureuser"
   network_interface_ids         = [azurerm_network_interface.app-nic.id]
   os_disk {
+    name                        = "app-os-disk"
     caching                     = "ReadWrite"
     storage_account_type        = "Standard_LRS" 
   }  
@@ -273,7 +274,7 @@ resource "azurerm_linux_virtual_machine" "app_vm" {
     publisher                   = "Canonical"
     offer                       = "0001-com-ubuntu-server-focal"
     sku                         = "20_04-lts-gen2"
-    version                     = latest  
+    version                     = "latest"  
   }
 
   admin_ssh_key {
@@ -325,4 +326,54 @@ resource "azurerm_network_security_rule" "db_from_app" {
 resource "azurerm_subnet_network_security_group_association" "db_assoc" {
   subnet_id                   = azurerm_subnet.db.id
   network_security_group_id   = azurerm_network_security_group.db_nsg.id
+}
+
+# ========================================================
+# Network Interface (NIC) for DataBase VM
+# ========================================================
+
+resource "azurerm_network_interface" "db_nic" {
+  name                        =  "db-nic"
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name 
+
+  ip_configuration {
+    name                      = "db-ip-config"
+    subnet_id                 = azurerm_subnet.db.id
+    private_ip_address_allocation =  "Dynamic"
+  } 
+}
+
+
+# ========================================================
+# Database virtual Machine  (VM)
+# ========================================================
+
+resource "azurerm_linux_virtual_machine" "db_vm" {
+  name                          = "db-vm"
+  resource_group_name           = azurerm_resource_group.rg.name
+  location                      = azurerm_resource_group.rg.location
+  size                          = "Standard_B1s"
+  admin_username                = "azureuser"
+  network_interface_ids         = [azurerm_network_interface.db_nic.id]
+  
+  os_disk {
+    name                        = "db-os-disk"
+    caching                     = "ReadWrite"
+    storage_account_type        = "Standard_LRS" 
+  }  
+
+  source_image_reference {
+    publisher                   = "Canonical"
+    offer                       = "0001-com-ubuntu-server-focal"
+    sku                         = "20_04-lts-gen2"
+    version                     = "latest"  
+  }
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file("C:\\Users\\DELL\\.ssh\\id_rsa.pub")
+  }
+
+  disable_password_authentication = true 
 }
