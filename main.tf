@@ -371,13 +371,69 @@ resource "azurerm_linux_virtual_machine" "db_vm" {
   }
 
   admin_ssh_key {
-    username   = "azureuser"
-    public_key = file("C:\\Users\\DELL\\.ssh\\id_rsa.pub")
+    username                    = "azureuser"
+    public_key                  = file("C:\\Users\\DELL\\.ssh\\id_rsa.pub")
   }
 
   disable_password_authentication = true 
 }
 
 # ========================================================
+# Public IP for load balancer
+# ========================================================
+
+resource "azurerm_public_ip" "lb_public_ip" {
+  name                = "lb-public-ip"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+# ========================================================
 # Load Balancer for Web Tier
 # ========================================================
+
+resource "azurerm_lb" "web_lb" {
+  name                = "web-lb"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  frontend_ip_configuration {
+    name                 = "PublicIPAddress"
+    public_ip_address_id = azurerm_public_ip.lb_public_ip.id
+  }
+}
+
+# Backend Address Pool
+resource "azurerm_lb_backend_address_pool" "web_backend_pool" {
+  name                = "web-backend-pool"
+  loadbalancer_id     = azurerm_lb.web_lb.id
+}
+
+# Health Probe
+resource "azurerm_lb_probe" "web_probe" {
+  name                = "http-probe"
+  loadbalancer_id     = azurerm_lb.web_lb.id
+  protocol            = "Tcp"
+  port                = 80
+}
+
+# Load Balancing Rule
+resource "azurerm_lb_rule" "web_lb_rule" {
+  name                           = "http-rule"
+  loadbalancer_id                = azurerm_lb.web_lb.id
+  protocol                       = "Tcp"
+  frontend_port                  = 80
+  backend_port                   = 80
+  frontend_ip_configuration_name = "web-frontend"
+  backend_address_pool_ids = [azurerm_lb_backend_address_pool.web_backend_pool.id]
+  probe_id                       = azurerm_lb_probe.web_probe.id
+}
+
+# Associate Web VM NIC with Backend Pool
+resource "azurerm_network_interface_backend_address_pool_association" "web_nic_lb_association" {
+  network_interface_id    = azurerm_network_interface.web_nic.id
+  ip_configuration_name   = "internal"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.web_backend_pool.id
+}
