@@ -166,7 +166,7 @@ resource "azurerm_network_interface" "web_nic" {
 # Linux Virtual Machine For Web
 # ========================================================
 
-resource "azurerm_linux_virtual_machine" "web_vm" {
+/*resource "azurerm_linux_virtual_machine" "web_vm" {
   name                        = "web-vm"
   location                    = azurerm_resource_group.rg.location
   resource_group_name         = azurerm_resource_group.rg.name
@@ -191,7 +191,7 @@ resource "azurerm_linux_virtual_machine" "web_vm" {
     sku                       = "22_04-lts"
     version                   = "latest"
   }
-}
+}*/
 
 
 # ========================================================
@@ -436,4 +436,54 @@ resource "azurerm_network_interface_backend_address_pool_association" "web_nic_l
   network_interface_id    = azurerm_network_interface.web_nic.id
   ip_configuration_name   = "internal"
   backend_address_pool_id = azurerm_lb_backend_address_pool.web_backend_pool.id
+}
+
+# ========================================================
+# Web Virtual Machine Scale Set (VMSS) Instad of Web VM
+# ========================================================
+
+resource "azurerm_linux_virtual_machine_scale_set" "web_vmss" {
+  name = "web-vmss"
+  location = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku = "Standard_B1ms"
+  instances = 2
+  admin_username = "azureuser"
+
+  admin_ssh_key {
+    username = "azureuser"
+    public_key = file("~/.ssh/id_rsa.pub")
+  }
+
+  source_image_reference {
+    publisher = "canonical"
+    offer = "UbantuServer"
+    sku = "18.04-LTS"
+    version = "latest"
+  }
+
+  upgrade_mode = "Automatic"
+
+  network_interface {
+    name = "webvmss-nic"
+    primary = true
+    ip_configuration {
+      name = "webvmss-ipconfig"
+      subnet_id = azurerm_subnet.web.id
+      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.web_backend_pool.id]
+      primary = true
+    }
+  }
+
+  os_disk {
+    caching = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  computer_name_prefix = "webvm"
+
+  tags = {
+    environment = "dev"
+    Tier = "web"
+  }
 }
