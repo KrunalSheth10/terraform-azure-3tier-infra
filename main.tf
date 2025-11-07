@@ -4,16 +4,21 @@
 
 terraform {
   required_providers {
-    azurerm                   = {
-      source                  = "hashicorp/azurerm"
-      version                 = "~> 3.0"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = ">= 3.90.0"
     }
   }
+
+  required_version = ">= 1.5.0"
 }
 
 provider "azurerm" {
   features {}
 }
+
+# Get information about the current Azure client (your logged-in user or service principal)
+data "azurerm_client_config" "current" {}
 
 
 # ========================================================
@@ -426,17 +431,17 @@ resource "azurerm_lb_rule" "web_lb_rule" {
   protocol                       = "Tcp"
   frontend_port                  = 80
   backend_port                   = 80
-  frontend_ip_configuration_name = "web-frontend"
+  frontend_ip_configuration_name = "PublicIPAddress"
   backend_address_pool_ids = [azurerm_lb_backend_address_pool.web_backend_pool.id]
   probe_id                       = azurerm_lb_probe.web_probe.id
 }
 
 # Associate Web VM NIC with Backend Pool
-resource "azurerm_network_interface_backend_address_pool_association" "web_nic_lb_association" {
+/*resource "azurerm_network_interface_backend_address_pool_association" "web_nic_lb_association" {
   network_interface_id    = azurerm_network_interface.web_nic.id
   ip_configuration_name   = "internal"
   backend_address_pool_id = azurerm_lb_backend_address_pool.web_backend_pool.id
-}
+}*/
 
 # ========================================================
 # Web Virtual Machine Scale Set (VMSS) Instad of Web VM
@@ -457,7 +462,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "web_vmss" {
 
   source_image_reference {
     publisher = "canonical"
-    offer = "UbantuServer"
+    offer = "UbuntuServer"
     sku = "18.04-LTS"
     version = "latest"
   }
@@ -486,4 +491,85 @@ resource "azurerm_linux_virtual_machine_scale_set" "web_vmss" {
     environment = "dev"
     Tier = "web"
   }
+}
+
+# ========================================================
+# KEY VAULT
+# ========================================================
+
+resource "azurerm_key_vault" "kv" {
+  name = "kv-${var.project_name}"
+  location = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku_name = "standard"
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  #soft_delete_enabled = true
+  purge_protection_enabled = false
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    secret_permissions = [
+      "Get",
+      "List",
+      "Set",
+      "Delete"
+    ]
+  }
+
+  tags = {
+    environment = var.environment
+    project = var.project_name
+  }
+}
+
+# ========================================================
+# Store Secrets
+# ========================================================
+
+resource "azurerm_key_vault_secret" "db_password" {
+  name = "db-password"
+  value = var.db_password
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+resource "azurerm_key_vault_secret" "db_connection" {
+  name         = "db-connection-string"
+  value        = "Server=${azurerm_linux_virtual_machine.db_vm.private_ip_address};Database=mydb;User Id=adminuser;Password=${var.db_password};"
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+resource "azurerm_key_vault_secret" "db_admin_password" {
+  name         = "db-admin-password"
+  value        = var.db_admin_password
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+# ========================================================
+# PostgreSQL Database
+# ========================================================
+
+# PostgreSQL Flexible Server
+
+resource "azurerm_postgresql_flexible_server" "db_server" {
+  name = "${var.project_name}-db"
+  resource_group_name = azurerm_resource_group.rg.name
+  location = azurerm_resource_group.rg.location
+  administrator_login = "dbadmin"
+  administrator_password = azurerm_key_vault_secret.db_admin_password.value
+  version = "13"
+  storage_mb = 32768
+  sku_name = "B_Standard_B1ms"
+  backup_retention_days = 7
+  zone = "1"
+}
+
+# PostgreSQL Database
+
+resource "azurerm_postgresql_flexible_server_database" "app_db" {
+  name = "${var.project_name}-appdb"
+  server_id = azurerm_postgresql_flexible_server.db_server.id
+  collation = "en_US.utf8"
+  charset = "UTF8" 
 }
