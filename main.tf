@@ -558,11 +558,18 @@ resource "azurerm_postgresql_flexible_server" "db_server" {
   location = azurerm_resource_group.rg.location
   administrator_login = "dbadmin"
   administrator_password = azurerm_key_vault_secret.db_admin_password.value
-  version = "13"
+  version = "16"
   storage_mb = 32768
   sku_name = "B_Standard_B1ms"
   backup_retention_days = 7
-  zone = "1"
+  delegated_subnet_id    = azurerm_subnet.db.id
+  private_dns_zone_id    = null
+
+  maintenance_window {
+    day_of_week  = 0
+    start_hour   = 0
+    start_minute = 0
+  }
 }
 
 # PostgreSQL Database
