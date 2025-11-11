@@ -15,6 +15,7 @@ terraform {
 
 provider "azurerm" {
   features {}
+    subscription_id = var.subscription_id
 }
 
 # Get information about the current Azure client (your logged-in user or service principal)
@@ -51,7 +52,7 @@ resource "azurerm_storage_account" "storage"{
 
 resource "azurerm_storage_container" "container"{
   name                        = "krunal-storage-container"
-  storage_account_name        = azurerm_storage_account.storage.name
+  storage_account_id        = azurerm_storage_account.storage.id
   container_access_type       = "private"
 }
 
@@ -287,6 +288,10 @@ resource "azurerm_linux_virtual_machine" "app_vm" {
     public_key = file("C:\\Users\\DELL\\.ssh\\id_rsa.pub")
   }
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   disable_password_authentication = true
       
 }
@@ -485,6 +490,10 @@ resource "azurerm_linux_virtual_machine_scale_set" "web_vmss" {
     storage_account_type = "Standard_LRS"
   }
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   computer_name_prefix = "webvm"
 
   tags = {
@@ -522,6 +531,20 @@ resource "azurerm_key_vault" "kv" {
     environment = var.environment
     project = var.project_name
   }
+}
+
+resource "azurerm_key_vault_access_policy" "vmss_kv_access" /*For Web VM*/{
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  object_id = azurerm_linux_virtual_machine_scale_set.web_vmss.identity[0].principal_id
+  secret_permissions = ["Get", "List"]
+}
+
+resource "azurerm_key_vault_access_policy" "appvm_kv_access" /*For App VM*/{
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  object_id = azurerm_linux_virtual_machine.app_vm.identity[0].principal_id
+  secret_permissions = ["Get", "List"]
 }
 
 # ========================================================
